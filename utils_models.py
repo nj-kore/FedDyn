@@ -83,7 +83,20 @@ class client_model(nn.Module):
             self.embedding = nn.Embedding(input_length, embedding_dim)
             self.stacked_LSTM = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_size, num_layers=num_LSTM)
             self.fc = nn.Linear(hidden_size, self.n_cls)
-              
+
+        if self.name == 'fd':
+            input_size = 36
+            self.n_cls = 2
+            hidden_size = 64
+            self.model = nn.Sequential(
+                nn.Linear(input_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, self.n_cls),
+                # nn.Softmax(dim=1)
+            )
+
         
     def forward(self, x):
         if self.name == 'Linear':
@@ -127,6 +140,9 @@ class client_model(nn.Module):
             # Choose last hidden layer
             last_hidden = output[-1,:,:]
             x = self.fc(last_hidden)
+
+        if self.name == 'fd':
+            x = self.model(x)
 
         return x
     
