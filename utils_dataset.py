@@ -525,6 +525,138 @@ class DatasetFD:
         print(self.clnt_x.shape)
 
 
+def load_fd_data_set2(base_path, n_clnt_dataset, deployment_id=-1, train=False):
+    if deployment_id != -1:
+        base_path += f'/deployment_{deployment_id}/'
+    path_X = base_path + ('train_X.npz' if train else 'test_X.npz')
+    path_Y = base_path + ('train_Y.npz' if train else 'test_Y.npz')
+    print(f"Loading from {path_X} and {path_Y}")
+    X = [[] for _ in range(n_clnt_dataset)]
+    Y = [[] for _ in range(n_clnt_dataset)]
+    for nid in range(n_clnt_dataset):
+        with np.load(path_X) as npz:
+            X[nid] = npz.f.arr_0
+    for nid in range(n_clnt_dataset):
+        with np.load(path_Y) as npz:
+            Y[nid] = npz.f.arr_0
+    return X, Y
+
+
+def load_and_prepare_dataset2(base_path, deployment_id, n_clnt_dataset, train=False):
+    X, Y = load_fd_data_set2(base_path, n_clnt_dataset=n_clnt_dataset, deployment_id=deployment_id, train=train)
+    np.random.seed(1337)
+
+    X, Y = prepare_datasets(X, Y)
+
+    # Shuffle training sets
+    X, Y = shuffle(X, Y, random_state=1337)
+
+    # Create 50/50 ratio for positives and negatives
+    false_mask = np.where(Y == 0)[0]
+    true_mask = Y == 1
+    num_true = np.sum(Y)
+    keep_mask = np.random.choice(false_mask, num_true, replace=False)
+    mask_array = np.zeros(len(Y), dtype=bool)
+    mask_array[keep_mask] = True
+
+    # Select the datapoints chosen for correct ratio, and trim to make computation time feasible
+    X = X[true_mask | mask_array]  # [:2000000]
+    Y = Y[true_mask | mask_array]  # [:2000000]
+
+    return X, Y
+
+class DatasetFD2:
+    def __init__(self, n_clnt_federated, deployment_id, name_prefix):
+        """
+        Parameters:
+             n_clnt_federated (int): The number of clients that the federated learning architecture should use.
+             deployment_id (int): The id of the deployment that the dataset corresponds to.
+             name_prefix (str): Prefix used for this particular test set.
+        """
+        deployment_constants = {
+            0: {'N_CLIENTS': 7, 'NUM_BYZ': 2},
+            1: {'N_CLIENTS': 6, 'NUM_BYZ': 1},
+            2: {'N_CLIENTS': 6, 'NUM_BYZ': 1},
+            3: {'N_CLIENTS': 7, 'NUM_BYZ': 2},
+            4: {'N_CLIENTS': 7, 'NUM_BYZ': 2},
+            5: {'N_CLIENTS': 7, 'NUM_BYZ': 2},
+            6: {'N_CLIENTS': 6, 'NUM_BYZ': 1},
+            7: {'N_CLIENTS': 6, 'NUM_BYZ': 1}
+        }
+        if deployment_id == -1:
+            dep_ids = [k for k in deployment_constants.keys()]
+        else:
+            dep_ids = [deployment_id]
+        self.dataset = 'fd'
+        self.name = f'{name_prefix}{deployment_id}_'
+        self.name += '%d' % n_clnt_federated
+        n_cls = 2
+        # self.n_clnt_dataset = n_clnt_dataset
+
+        data_path = 'Data'
+        if not os.path.exists('%s/%s/' % (data_path, self.name)):
+            create_dir_if_not_exists('%s/%s/' % (data_path, self.name))
+            for dep_id in dep_ids:
+                dep_consts = deployment_constants[dep_id]
+                n_clnt_dataset = dep_consts['N_CLIENTS']
+
+                # Generate data
+                print("Data does not exist in correct format. Creating it...")
+                X_train, Y_train = load_and_prepare_dataset2('%s/Raw/%s' % (data_path, self.dataset),
+                                                             deployment_id=dep_id,
+                                                             n_clnt_dataset=n_clnt_dataset,
+                                                             train=True)
+                print(f"Loaded Training Data for deployment {dep_id}")
+
+                excess_data = len(X_train) % n_clnt_federated
+                if excess_data != 0:
+                    X_train = X_train[:-excess_data]
+                    Y_train = Y_train[:-excess_data]
+
+                print("Train Length:", len(Y_train))
+                print("True ratio: ", np.sum(Y_train) / len(Y_train))
+
+            clnt_x = np.array(np.split(X_train, n_clnt_federated))
+            clnt_y = np.array(np.split(Y_train, n_clnt_federated))
+
+            np.save('%s/%s/clnt_x.npy' % (data_path, self.name), clnt_x)
+            np.save('%s/%s/clnt_y.npy' % (data_path, self.name), clnt_y)
+
+            X_test, Y_test = load_and_prepare_dataset2('%s/Raw/%s' % (data_path, self.dataset),
+                                                         deployment_id=deployment_id,
+                                                         n_clnt_dataset=n_clnt_dataset,
+                                                         train=False)
+
+            np.save('%s/%s/tst_x.npy' % (data_path, self.name), X_test)
+            np.save('%s/%s/tst_y.npy' % (data_path, self.name), Y_test)
+
+            tst_x = X_test
+            tst_y = Y_test
+
+            print("Len Y_test:", len(Y_test))
+            print("True ratio: ", np.sum(Y_test) / len(Y_test))
+
+        else:
+            # Load data
+            print('Load')
+            clnt_x = np.load('%s/%s/clnt_x.npy' % (data_path, self.name), allow_pickle=True)
+            clnt_y = np.load('%s/%s/clnt_y.npy' % (data_path, self.name), allow_pickle=True)
+
+            tst_x = np.load('%s/%s/tst_x.npy' % (data_path, self.name), allow_pickle=True)
+            tst_y = np.load('%s/%s/tst_y.npy' % (data_path, self.name), allow_pickle=True)
+
+        for clnt in range(n_clnt_federated):
+            print(', '.join(['%.4f' % np.mean(clnt_y[clnt] == t) for t in range(n_cls)]))
+
+        self.clnt_x = clnt_x
+        self.clnt_y = clnt_y
+
+        self.tst_x = tst_x
+        self.tst_y = tst_y
+        self.n_client = len(clnt_x)
+        print(self.clnt_x.shape)
+
+
 # Original prepration is from LEAF paper...
 # This loads Shakespeare dataset only.
 # data_path/train and data_path/test are assumed to be processed

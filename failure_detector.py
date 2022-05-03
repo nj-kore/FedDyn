@@ -9,7 +9,7 @@ n_dim = 30
 n_clnt = 10
 n_cls = 2
 
-data_obj = DatasetFD(n_clnt, 7, "fd")
+data_obj = DatasetFD2(n_clnt, 0, "fd")
 
 ###
 model_name = 'fd'  # Model type
@@ -50,3 +50,16 @@ alpha_coef = 1e-2
                                      epoch=epoch, com_amount=com_amount, print_per=print_per, weight_decay=weight_decay,
                                      model_func=model_func, init_model=init_model, alpha_coef=alpha_coef,
                                      save_period=save_period, lr_decay_per_round=lr_decay_per_round)
+# Plot results
+plt.figure(figsize=(6, 5))
+plt.plot(np.arange(com_amount)+1, tst_perf_all_FedFyn[:,1], label='FedDyn')
+plt.ylabel('Test Accuracy', fontsize=16)
+plt.xlabel('Communication Rounds', fontsize=16)
+plt.legend(fontsize=16, loc='lower right', bbox_to_anchor=(1.015, -0.02))
+plt.grid()
+plt.xlim([0, com_amount+1])
+plt.title(data_obj.name, fontsize=16)
+plt.xticks(fontsize=16)
+plt.yticks(fontsize=16)
+plt.savefig('Output/%s/plot.pdf' %data_obj.name, dpi=1000, bbox_inches='tight')
+plt.show()
