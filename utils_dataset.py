@@ -528,19 +528,14 @@ class DatasetFD:
 def load_fd_data_set2(base_path, n_clnt_dataset, deployment_id=-1, train=False):
     if deployment_id != -1:
         base_path += f'/deployment_{deployment_id}/'
-    path_X = base_path + ('train_X.npz' if train else 'test_X.npz')
-    path_Y = base_path + ('train_Y.npz' if train else 'test_Y.npz')
+    path_X = base_path + ('train_red_X.npz' if train else 'test_red_X.npz')
+    path_Y = base_path + ('train_red_Y.npz' if train else 'test_red_Y.npz')
     print(f"Loading from {path_X} and {path_Y}")
-    X = [[] for _ in range(n_clnt_dataset)]
-    Y = [[] for _ in range(n_clnt_dataset)]
-    for nid in range(n_clnt_dataset):
-        with np.load(path_X) as npz:
-            X[nid] = npz.f.arr_0
-    for nid in range(n_clnt_dataset):
-        with np.load(path_Y) as npz:
-            Y[nid] = npz.f.arr_0
+    with open(path_X, 'rb') as f:
+        X = pickle.load(f)
+    with open(path_Y, 'rb') as f:
+        Y = pickle.load(f)
     return X, Y
-
 
 def load_and_prepare_dataset2(base_path, deployment_id, n_clnt_dataset, train=False):
     X, Y = load_fd_data_set2(base_path, n_clnt_dataset=n_clnt_dataset, deployment_id=deployment_id, train=train)
