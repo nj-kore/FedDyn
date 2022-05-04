@@ -6,10 +6,11 @@ from utils_methods import *
 [alpha, beta, theta, iid_sol, iid_data, name_prefix] = [0.0, 0.0, 0.0, True, True, 'syn_alpha-1_beta-1_theta0']
 
 n_dim = 30
-n_clnt = 10
+n_clnt = 8
 n_cls = 2
 
-data_obj = DatasetFD2(n_clnt, 0, "fd")
+# deployment_id=-1 uses all deployments. Each fed client gets the data from one deployment.
+data_obj = DatasetFD2(n_clnt_federated=n_clnt, deployment_id=-1, name_prefix="fd")
 
 ###
 model_name = 'fd'  # Model type

@@ -596,45 +596,60 @@ class DatasetFD2:
         data_path = 'Data'
         if not os.path.exists('%s/%s/' % (data_path, self.name)):
             create_dir_if_not_exists('%s/%s/' % (data_path, self.name))
+            clnt_x = [[] for _ in dep_ids]
+            clnt_y = [[] for _ in dep_ids]
+            print("Data does not exist in correct format. Creating it...")
+            clnt_shortest = -1
             for dep_id in dep_ids:
                 dep_consts = deployment_constants[dep_id]
                 n_clnt_dataset = dep_consts['N_CLIENTS']
 
                 # Generate data
-                print("Data does not exist in correct format. Creating it...")
-                X_train, Y_train = load_and_prepare_dataset2('%s/Raw/%s' % (data_path, self.dataset),
+                clnt_x[dep_id], clnt_y[dep_id] = load_and_prepare_dataset2('%s/Raw/%s' % (data_path, self.dataset),
                                                              deployment_id=dep_id,
                                                              n_clnt_dataset=n_clnt_dataset,
                                                              train=True)
                 print(f"Loaded Training Data for deployment {dep_id}")
 
-                excess_data = len(X_train) % n_clnt_federated
-                if excess_data != 0:
-                    X_train = X_train[:-excess_data]
-                    Y_train = Y_train[:-excess_data]
+                #excess_data = len(X_train_dep) % n_clnt_federated
+                #if excess_data != 0:
+                #    X_train = X_train_dep[:-excess_data]
+                #    Y_train = Y_train_dep[:-excess_data]
 
-                print("Train Length:", len(Y_train))
-                print("True ratio: ", np.sum(Y_train) / len(Y_train))
+                len_y = len(clnt_y[dep_id])
+                print("Train Length:", len_y)
+                print("True ratio: ", np.sum(clnt_y[dep_id]) / len_y)
+                if len(clnt_y[dep_id]) < clnt_shortest or clnt_shortest == -1:
+                    clnt_shortest = len_y
 
-            clnt_x = np.array(np.split(X_train, n_clnt_federated))
-            clnt_y = np.array(np.split(Y_train, n_clnt_federated))
+            clnt_x = [np.array(sublist[:clnt_shortest]) for sublist in clnt_x]
+            clnt_y = [np.array(sublist[:clnt_shortest]) for sublist in clnt_y]
 
+            #clnt_x = np.array(np.split(X_train, n_clnt_federated))
+            #clnt_y = np.array(np.split(Y_train, n_clnt_federated))
+            clnt_x = np.array(clnt_x)
+            clnt_y = np.array(clnt_y)
             np.save('%s/%s/clnt_x.npy' % (data_path, self.name), clnt_x)
             np.save('%s/%s/clnt_y.npy' % (data_path, self.name), clnt_y)
 
-            X_test, Y_test = load_and_prepare_dataset2('%s/Raw/%s' % (data_path, self.dataset),
-                                                         deployment_id=deployment_id,
-                                                         n_clnt_dataset=n_clnt_dataset,
-                                                         train=False)
+            tst_x = []
+            tst_y = []
+            for dep_id in dep_ids:
+                test_X, test_Y = load_and_prepare_dataset2('%s/Raw/%s' % (data_path, self.dataset),
+                                                             deployment_id=dep_id,
+                                                             n_clnt_dataset=n_clnt_dataset,
+                                                             train=False)
+                print(f"Loaded Testing Data for deployment {dep_id}")
+                tst_x.append(test_X)
+                tst_y.append(test_Y)
+            tst_x = np.concatenate(tst_x)
+            tst_y = np.concatenate(tst_y)
+            len_y = len(tst_y)
+            print("Test Length:", len_y)
+            print("True ratio: ", np.sum(tst_y) / len_y)
+            np.save('%s/%s/tst_x.npy' % (data_path, self.name), tst_x)
+            np.save('%s/%s/tst_y.npy' % (data_path, self.name), tst_y)
 
-            np.save('%s/%s/tst_x.npy' % (data_path, self.name), X_test)
-            np.save('%s/%s/tst_y.npy' % (data_path, self.name), Y_test)
-
-            tst_x = X_test
-            tst_y = Y_test
-
-            print("Len Y_test:", len(Y_test))
-            print("True ratio: ", np.sum(Y_test) / len(Y_test))
 
         else:
             # Load data
