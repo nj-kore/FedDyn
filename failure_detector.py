@@ -14,14 +14,14 @@ data_obj = DatasetFD2(n_clnt_federated=n_clnt, deployment_id=-1, name_prefix="fd
 
 ###
 model_name = 'fd'  # Model type
-com_amount = 500
+com_amount = 100
 save_period = 50
-weight_decay = 1e-5
-batch_size = 1024
+weight_decay = 0
+batch_size = 2048
 act_prob = .1
-lr_decay_per_round = 1
-epoch = 10
-learning_rate = 0.1
+lr_decay_per_round = 0
+epoch = 25
+learning_rate = 5e-3
 print_per = 5
 
 # Model function

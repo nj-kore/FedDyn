@@ -1,3 +1,6 @@
+from enum import IntEnum
+from os import walk
+
 import numpy as np
 
 from utils_libs import *
@@ -537,8 +540,59 @@ def load_fd_data_set2(base_path, n_clnt_dataset, deployment_id=-1, train=False):
         Y = pickle.load(f)
     return X, Y
 
+class MI(IntEnum): # Meta indices
+    TIME_START = 0,
+    TIME_END = 1,
+    NID = 2,
+    IS_MUTE = 3,
+    SEQ = 4,
+    RTC = 5,
+    TSH = 6
+
+def filter_datapoints(vecs, mets):
+    for nidx, nid_mets in enumerate(mets):
+        indices_to_remove = []
+        for i, met in enumerate(nid_mets):
+            if met[MI.TSH] >= 180000:
+                indices_to_remove.append(i)
+
+        vecs[nidx] = np.delete(vecs[nidx], indices_to_remove, axis=0)
+        mets[nidx] = np.delete(mets[nidx], indices_to_remove, axis=0)
+
+def load_fd_data_set3(base_path, n_clnt_dataset, deployment_id=-1, train=False):
+    vecs = [[] for _ in range(n_clnt_dataset)]
+    mets = [[] for _ in range(n_clnt_dataset)]
+    path = base_path + ('/train/' if train else '/test/')
+    if deployment_id != -1:
+        path += f'deployment_{deployment_id}/'
+
+    path += 'red/'
+
+    print(f"Loading from {path}")
+    filenames = next(walk(path), (None, None, []))[2]  # [] if no file
+    for f_name in sorted(filenames):
+        nid = int(f_name.split('_')[1].split('.')[0])
+        print('Opening file ', f_name)
+        loaded_data = np.load(path + f_name)
+        vecs[nid] = loaded_data['vec']
+        mets[nid] = loaded_data['met']
+
+    filter_datapoints(vecs, mets)
+
+    X = [[] for _ in range(n_clnt_dataset)]
+    Y = [[] for _ in range(n_clnt_dataset)]
+    for nid in range(n_clnt_dataset):
+        for i in range(len(vecs[nid])):
+            X[nid].append(vecs[nid][i])
+            Y[nid].append(mets[nid][i][MI.IS_MUTE])
+        X[nid] = np.array(X[nid])
+        Y[nid] = np.array(Y[nid])
+
+    return X, Y
+
+
 def load_and_prepare_dataset2(base_path, deployment_id, n_clnt_dataset, train=False):
-    X, Y = load_fd_data_set2(base_path, n_clnt_dataset=n_clnt_dataset, deployment_id=deployment_id, train=train)
+    X, Y = load_fd_data_set3(base_path, n_clnt_dataset=n_clnt_dataset, deployment_id=deployment_id, train=train)
     np.random.seed(1337)
 
     X, Y = prepare_datasets(X, Y)
@@ -550,7 +604,7 @@ def load_and_prepare_dataset2(base_path, deployment_id, n_clnt_dataset, train=Fa
     false_mask = np.where(Y == 0)[0]
     true_mask = Y == 1
     num_true = np.sum(Y)
-    keep_mask = np.random.choice(false_mask, num_true, replace=False)
+    keep_mask = np.random.choice(false_mask, int(num_true), replace=False)
     mask_array = np.zeros(len(Y), dtype=bool)
     mask_array[keep_mask] = True
 
@@ -630,6 +684,8 @@ class DatasetFD2:
             tst_x = []
             tst_y = []
             for dep_id in dep_ids:
+                dep_consts = deployment_constants[dep_id]
+                n_clnt_dataset = dep_consts['N_CLIENTS']
                 test_X, test_Y = load_and_prepare_dataset2('%s/Raw/%s' % (data_path, self.dataset),
                                                              deployment_id=dep_id,
                                                              n_clnt_dataset=n_clnt_dataset,
