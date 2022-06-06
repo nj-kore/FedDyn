@@ -20,7 +20,7 @@ weight_decay = 0
 batch_size = 2048
 act_prob = .1
 lr_decay_per_round = 0
-epoch = 25
+epoch = 5
 learning_rate = 5e-3
 print_per = 5
 

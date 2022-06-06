@@ -87,14 +87,14 @@ class client_model(nn.Module):
         if self.name == 'fd':
             input_size = 36
             self.n_cls = 2
-            hidden_size = 64
+            hidden_size = 8
             self.model = nn.Sequential(
                 nn.Linear(input_size, hidden_size),
                 nn.ReLU(),
                 nn.Linear(hidden_size, hidden_size),
                 nn.ReLU(),
                 nn.Linear(hidden_size, self.n_cls),
-                # nn.Softmax(dim=1)
+                nn.Softmax(dim=1)
             )
 
         
